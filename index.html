@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudNotes | 2026 隐私加密笔记</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>优米笔记 | 安全加密云笔记</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="theme-color" content="#020617">
@@ -16,6 +16,8 @@
             font-family: 'Inter', sans-serif;
             background-color: #020617;
             color: #f8fafc;
+            /* 解决移动端底部输入框被遮挡问题 */
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .glass {
@@ -26,44 +28,58 @@
 
         .gradient-btn {
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .gradient-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+        .gradient-btn:active {
+            transform: scale(0.98);
         }
 
-        .note-card {
-            transition: all 0.3s ease;
+        .gradient-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(100%);
         }
 
-        .note-card:hover {
-            border-color: rgba(59, 130, 246, 0.5);
-            background: rgba(30, 41, 59, 0.9);
-        }
-
-        /* 隐藏滚动条但保留功能 */
+        /* 隐藏滚动条 */
         ::-webkit-scrollbar {
             width: 0px;
+        }
+
+        /* Toast 动画 */
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
         }
     </style>
 </head>
 
 <body class="min-h-screen selection:bg-blue-500/30">
-    <div id="app" class="max-w-3xl mx-auto px-6 py-12 md:py-20">
-        <!-- 动态加载区 -->
+    <div id="toastContainer" class="fixed top-4 left-0 right-0 z-[100] flex flex-col items-center gap-2 pointer-events-none"></div>
+
+    <div id="app" class="max-w-3xl mx-auto px-6 py-8 md:py-20 pb-32">
+        </div>
+
+    <div id="confirmModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="glass w-[90%] max-w-sm p-6 rounded-3xl shadow-2xl transform scale-95 transition-transform duration-300" id="confirmBox">
+            <h3 class="text-xl font-bold mb-2">⚠️ 确认操作</h3>
+            <p id="confirmMsg" class="text-slate-400 text-sm mb-6 leading-relaxed"></p>
+            <div class="flex gap-3">
+                <button id="confirmCancelBtn" class="flex-1 py-3 text-slate-400 font-semibold rounded-xl hover:bg-slate-800 transition text-sm">取消</button>
+                <button id="confirmOkBtn" class="flex-1 py-3 gradient-btn text-white font-bold rounded-xl text-sm shadow-lg shadow-blue-900/20">确认</button>
+            </div>
+        </div>
     </div>
 
-    <!-- 极简设置弹窗 -->
-    <div id="settingsModal"
-        class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
-        <div class="glass w-full max-w-sm p-8 rounded-[2.5rem] shadow-2xl space-y-6">
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="glass w-[90%] max-w-sm p-8 rounded-[2.5rem] shadow-2xl space-y-6">
             <h2 class="text-2xl font-extrabold tracking-tight">⚙️ 系统配置</h2>
             <div class="space-y-4">
                 <div class="space-y-1">
-                    <label class="text-[10px] uppercase tracking-widest text-slate-400 font-bold ml-1">Worker
-                        服务地址</label>
+                    <label class="text-[10px] uppercase tracking-widest text-slate-400 font-bold ml-1">API 地址</label>
                     <input id="setApi" type="text" placeholder="https://..."
                         class="w-full bg-slate-900/50 border border-slate-700 p-4 rounded-2xl outline-none focus:ring-2 ring-blue-500/50 text-sm transition-all">
                 </div>
@@ -74,49 +90,151 @@
                 </div>
             </div>
             <div class="flex gap-3">
-                <button onclick="closeSettings()"
-                    class="flex-1 py-4 text-slate-400 font-semibold rounded-2xl hover:bg-slate-800 transition">取消</button>
-                <button onclick="saveSettings()"
-                    class="flex-1 py-4 gradient-btn text-white font-bold rounded-2xl">保存</button>
+                <button onclick="closeSettings()" class="flex-1 py-4 text-slate-400 font-semibold rounded-2xl hover:bg-slate-800 transition">取消</button>
+                <button onclick="saveSettings()" class="flex-1 py-4 gradient-btn text-white font-bold rounded-2xl">保存</button>
             </div>
-            <div class="text-center pt-2">
-                <a href="https://www.youtube.com/@sanshicao" target="_blank"
-                    class="text-[10px] text-slate-600 hover:text-slate-400 font-bold tracking-widest uppercase">YouTube
-                    @三十槽</a>
+            <div class="text-center pt-4 border-t border-white/5 mt-4">
+                <a href="https://v.kuaishou.com/J4JJLtMH" target="_blank"
+                    class="text-[10px] text-slate-500 hover:text-blue-400 font-bold tracking-widest uppercase transition flex items-center justify-center gap-2">
+                    <span class="bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded text-[9px]">关注</span>
+                    快手 @负债人打工日记
+                </a>
             </div>
         </div>
     </div>
 
     <script>
+        /* --- 1. 核心加密模块 (PBKDF2 + AES-GCM + Salt) --- */
+        const CryptoModule = {
+            // 生成随机盐
+            generateSalt: () => window.crypto.getRandomValues(new Uint8Array(16)),
+            
+            // 派生密钥
+            getKeyMaterial: async (password) => {
+                const enc = new TextEncoder();
+                return window.crypto.subtle.importKey(
+                    "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+                );
+            },
+            
+            getKey: async (keyMaterial, salt) => {
+                return window.crypto.subtle.deriveKey(
+                    { "name": "PBKDF2", salt: salt, "iterations": 100000, "hash": "SHA-256" },
+                    keyMaterial,
+                    { "name": "AES-GCM", "length": 256 },
+                    true, ["encrypt", "decrypt"]
+                );
+            },
+
+            // 加密
+            encrypt: async (text, password) => {
+                try {
+                    const salt = CryptoModule.generateSalt();
+                    const keyMaterial = await CryptoModule.getKeyMaterial(password);
+                    const key = await CryptoModule.getKey(keyMaterial, salt);
+                    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                    const enc = new TextEncoder();
+                    const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(text));
+                    
+                    return btoa(JSON.stringify({
+                        iv: Array.from(iv),
+                        salt: Array.from(salt),
+                        data: Array.from(new Uint8Array(encrypted))
+                    }));
+                } catch (e) {
+                    console.error("Encryption failed", e);
+                    throw new Error("加密失败");
+                }
+            },
+
+            // 解密
+            decrypt: async (jsonStr, password) => {
+                try {
+                    const raw = JSON.parse(atob(jsonStr));
+                    // 强制新版验证
+                    if (!raw.salt) throw new Error("Old format");
+
+                    const salt = new Uint8Array(raw.salt);
+                    const iv = new Uint8Array(raw.iv);
+                    const data = new Uint8Array(raw.data);
+                    
+                    const keyMaterial = await CryptoModule.getKeyMaterial(password);
+                    const key = await CryptoModule.getKey(keyMaterial, salt);
+                    
+                    const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+                    return new TextDecoder().decode(decrypted);
+                } catch (e) {
+                    return null; // 解密失败
+                }
+            }
+        };
+
+        /* --- 2. UI 工具模块 (Toast & Loading) --- */
+        const UI = {
+            toast: (msg, type = 'info') => {
+                const container = document.getElementById('toastContainer');
+                const el = document.createElement('div');
+                const colors = type === 'error' ? 'bg-red-500/90 text-white' : (type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-slate-800/90 text-slate-200');
+                el.className = `pointer-events-auto px-6 py-3 rounded-full text-sm font-bold shadow-xl backdrop-blur-md toast-enter ${colors}`;
+                el.innerText = msg;
+                container.appendChild(el);
+                setTimeout(() => {
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateY(-20px)';
+                    el.style.transition = 'all 0.3s';
+                    setTimeout(() => el.remove(), 300);
+                }, 3000);
+            },
+            
+            confirm: (msg) => {
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('confirmModal');
+                    const box = document.getElementById('confirmBox');
+                    const msgEl = document.getElementById('confirmMsg');
+                    const okBtn = document.getElementById('confirmOkBtn');
+                    const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                    msgEl.innerText = msg;
+                    modal.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        modal.classList.remove('opacity-0');
+                        box.classList.remove('scale-95');
+                    });
+
+                    const cleanup = () => {
+                        modal.classList.add('opacity-0');
+                        box.classList.add('scale-95');
+                        setTimeout(() => modal.classList.add('hidden'), 300);
+                        okBtn.onclick = null;
+                        cancelBtn.onclick = null;
+                    };
+
+                    okBtn.onclick = () => { cleanup(); resolve(true); };
+                    cancelBtn.onclick = () => { cleanup(); resolve(false); };
+                });
+            },
+
+            setLoading: (btnId, isLoading, loadingText = "处理中...", normalText) => {
+                const btn = typeof btnId === 'string' ? document.getElementById(btnId) : btnId;
+                if (!btn) return;
+                if (isLoading) {
+                    btn.dataset.normalText = btn.innerText; 
+                    btn.innerText = loadingText;
+                    btn.disabled = true;
+                } else {
+                    btn.innerText = normalText || btn.dataset.normalText || "确认";
+                    btn.disabled = false;
+                }
+            }
+        };
+
+        /* --- 3. 业务逻辑 --- */
+        let API_URL = localStorage.getItem('cf_notes_api') || "";
+        let ADMIN_KEY = localStorage.getItem('cf_notes_key') || "";
         const urlParams = new URLSearchParams(window.location.search);
-        let apiFromUrl = urlParams.get('api');
-        const cfgFromUrl = urlParams.get('cfg');
-        if (cfgFromUrl) { try { apiFromUrl = atob(cfgFromUrl); } catch (e) { } }
         const shareId = urlParams.get('share');
 
-        let API_URL = apiFromUrl || localStorage.getItem('cf_notes_api') || "";
-        let ADMIN_KEY = localStorage.getItem('cf_notes_key') || "";
-
         const app = document.getElementById('app');
-
-        // 加解密逻辑
-        async function getK(pw) {
-            const enc = new TextEncoder();
-            const hash = await crypto.subtle.digest('SHA-256', enc.encode(pw));
-            return await crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-        }
-        async function encrypt(text, pw) {
-            const enc = new TextEncoder(); const iv = crypto.getRandomValues(new Uint8Array(12)); const key = await getK(pw);
-            const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(text));
-            return btoa(JSON.stringify({ iv: Array.from(iv), data: Array.from(new Uint8Array(cipher)) }));
-        }
-        async function decrypt(json, pw) {
-            try {
-                const { iv, data } = JSON.parse(atob(json)); const key = await getK(pw);
-                const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data));
-                return new TextDecoder().decode(dec);
-            } catch (e) { return null; }
-        }
 
         function init() {
             if (shareId) renderShareView();
@@ -130,44 +248,53 @@
                 <div class="inline-flex p-5 bg-blue-500/10 rounded-full text-5xl">🛡️</div>
                 <div class="space-y-2">
                     <h1 class="text-4xl font-extrabold tracking-tight italic">CloudNotes</h1>
-                    <p class="text-slate-400 leading-relaxed">您的专属分布式加密笔记系统<br>请先关联您的 Cloudflare Worker 后端</p>
+                    <p class="text-slate-400 leading-relaxed text-sm">您的专属分布式加密笔记系统<br>安全 · 私密 · 极速</p>
                 </div>
-                <button onclick="configUrl()" class="px-10 py-5 gradient-btn text-white font-black rounded-3xl shadow-2xl">初始化配置</button>
+                <button onclick="configUrl()" class="px-10 py-5 gradient-btn text-white font-black rounded-3xl shadow-2xl w-full md:w-auto">初始化配置</button>
             </div>
         `;
         }
 
         function renderMainView() {
             app.innerHTML = `
-            <div class="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <header class="flex justify-between items-end">
+            <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <header class="flex justify-between items-center">
                     <div class="space-y-1">
-                        <h1 class="text-4xl font-extrabold tracking-tighter bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">CloudNotes</h1>
-                        <p class="text-[10px] uppercase tracking-[0.3em] text-blue-500 font-black">端到端加密保险库</p>
+                        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tighter bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">优米笔记</h1>
                     </div>
-                    <button onclick="configUrl()" class="p-4 glass rounded-2xl hover:rotate-180 transition-all duration-500 text-xl">⚙️</button>
+                    <button onclick="configUrl()" class="p-3 glass rounded-xl hover:bg-slate-800 transition text-lg">⚙️</button>
                 </header>
 
-                <main class="glass p-8 rounded-[2.5rem] shadow-2xl space-y-6 border-white/5">
-                    <input id="mainPw" type="password" placeholder="设置解密主密码 (Passkey)" class="w-full bg-slate-950/50 border border-slate-800 p-5 rounded-2xl outline-none focus:ring-2 ring-blue-500/50 transition-all font-mono">
-                    <textarea id="noteInput" placeholder="在此输入私人内容..." class="w-full bg-slate-950/50 border border-slate-800 p-5 h-48 rounded-2xl outline-none focus:bg-slate-950 transition-all resize-none leading-relaxed"></textarea>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="doSave()" class="gradient-btn text-white py-5 rounded-2xl font-black tracking-widest uppercase text-xs">加密存入云端</button>
-                        <button onclick="doAI()" class="glass text-purple-400 py-5 rounded-2xl font-black tracking-widest uppercase text-xs hover:bg-purple-500/10 transition border-purple-500/20">✨ AI 智能总结</button>
+                <main class="glass p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-4 border-white/5">
+                    <input id="mainPw" type="password" placeholder="输入主密码 (Passkey)" 
+                        class="w-full bg-slate-950/50 border border-slate-800 p-4 rounded-xl outline-none focus:ring-2 ring-blue-500/50 transition-all font-mono text-sm">
+                    
+                    <textarea id="noteInput" placeholder="写点什么..." 
+                        class="w-full bg-slate-950/50 border border-slate-800 p-4 h-40 md:h-48 rounded-xl outline-none focus:bg-slate-950 transition-all resize-none leading-relaxed text-base"></textarea>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btnSave" onclick="doSave()" class="gradient-btn text-white py-4 rounded-xl font-black tracking-widest uppercase text-xs shadow-lg shadow-blue-900/20">加密保存</button>
+                        <button id="btnAI" onclick="doAI()" class="glass text-purple-400 py-4 rounded-xl font-black tracking-widest uppercase text-xs hover:bg-purple-500/10 transition border-purple-500/20">✨ AI 总结</button>
                     </div>
                 </main>
 
-                <section class="space-y-6">
-                    <div class="flex justify-between items-center px-4">
-                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Vault / 我的加密库</h2>
-                        <button onclick="loadList()" class="text-blue-500 text-xs font-black hover:underline uppercase">刷新列表</button>
+                <section class="space-y-4">
+                    <div class="flex justify-between items-center px-2">
+                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 italic">Vault</h2>
+                        <button id="btnRefresh" onclick="loadList()" class="text-blue-500 text-xs font-black hover:text-blue-400 uppercase flex items-center gap-1">
+                           🔄 刷新列表
+                        </button>
                     </div>
-                    <div id="notesList" class="space-y-4">
-                        <div class="text-center py-20 text-slate-600 italic text-sm">配置暗号并填入密码后点击刷新。</div>
+                    <div id="notesList" class="space-y-3 pb-20">
+                        <div class="text-center py-10 text-slate-600 italic text-xs">输入密码后点击刷新加载数据</div>
                     </div>
                 </section>
-                <footer class="text-center pt-8 pb-4 opacity-50 hover:opacity-100 transition duration-500">
-                     <a href="https://www.youtube.com/@sanshicao" target="_blank" class="text-[10px] text-slate-500 font-bold hover:text-blue-400 uppercase tracking-widest transition">Built by 三十槽 | YouTube</a>
+                
+                <footer class="text-center pt-8 opacity-60 hover:opacity-100 transition duration-500">
+                     <a href="https://v.kuaishou.com/K13u2RPy" target="_blank" class="text-[10px] text-slate-600 font-bold hover:text-orange-500 uppercase tracking-widest transition flex flex-col gap-1 items-center">
+                        <span>Built by 负债人打工人日记</span>
+                        <span class="text-[9px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">点击关注快手</span>
+                     </a>
                 </footer>
             </div>
         `;
@@ -175,23 +302,27 @@
 
         function renderShareView() {
             app.innerHTML = `
-            <div class="glass p-12 rounded-[3rem] shadow-2xl text-center space-y-8 animate-in zoom-in duration-500">
-                <div class="text-6xl animate-bounce">🔥</div>
+            <div class="glass p-8 md:p-12 rounded-[2.5rem] shadow-2xl text-center space-y-8 animate-in zoom-in duration-500 mt-10">
+                <div class="text-5xl animate-bounce">🔥</div>
                 <div class="space-y-2">
-                    <h1 class="text-3xl font-black italic">阅后即焚解密</h1>
-                    <p class="text-slate-400 text-sm">解密后数据将立即从服务器物理擦除</p>
+                    <h1 class="text-2xl font-black italic">阅后即焚</h1>
+                    <p class="text-slate-400 text-xs">解密后数据将立即从服务器永久物理擦除</p>
                 </div>
-                <input id="sharePw" type="password" placeholder="请输入 6 位以上解密密码" class="w-full bg-slate-950/50 border border-slate-800 p-5 rounded-2xl outline-none focus:ring-2 ring-orange-500/50 text-center font-mono">
-                <button id="unlockBtn" onclick="doUnlockShare()" class="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition">解密并销毁</button>
-                <div id="shareResult" class="mt-8 text-left p-6 bg-slate-950/50 rounded-2xl hidden whitespace-pre-wrap text-sm leading-relaxed border border-orange-500/20 ring-1 ring-orange-500/10 shadow-inner italic text-slate-300"></div>
-                <div class="pt-8 border-t border-white/5">
-                    <a href="https://www.youtube.com/@sanshicao" target="_blank" class="text-xs font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition underline underline-offset-4">🎬 关注 YouTube @三十槽 学习搭建</a>
+                <input id="sharePw" type="password" placeholder="请输入解密密码" class="w-full bg-slate-950/50 border border-slate-800 p-4 rounded-xl outline-none focus:ring-2 ring-orange-500/50 text-center font-mono text-sm">
+                <button id="unlockBtn" onclick="doUnlockShare()" class="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition text-sm">解密并销毁</button>
+                <div id="shareResult" class="mt-6 text-left p-5 bg-slate-950/80 rounded-xl hidden whitespace-pre-wrap text-sm leading-relaxed border border-orange-500/20 text-slate-200 select-text"></div>
+                
+                <div class="pt-8 border-t border-white/5 mt-6">
+                    <a href="https://v.kuaishou.com/K13u2RPy" target="_blank" class="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-orange-500 transition flex flex-col gap-1">
+                        <span>🎬 关注快手学习搭建</span>
+                        <span class="text-[10px] opacity-70">@负债人打工日记</span>
+                    </a>
                 </div>
             </div>
         `;
         }
 
-        /* --- 功能逻辑 --- */
+        /* --- 交互逻辑 --- */
         function configUrl() {
             document.getElementById('settingsModal').classList.remove('hidden');
             document.getElementById('setApi').value = API_URL;
@@ -205,45 +336,104 @@
         }
 
         async function doSave() {
-            const text = document.getElementById('noteInput').value; const pw = document.getElementById('mainPw').value;
-            if (!text || !pw) return alert("请填写内容和密码");
+            const text = document.getElementById('noteInput').value;
+            const pw = document.getElementById('mainPw').value;
+            if (!text) return UI.toast("内容不能为空", "error");
+            if (!pw) return UI.toast("请设置主密码", "error");
+
+            UI.setLoading("btnSave", true, "加密上传中...");
+
             try {
-                const cipher = await encrypt(text, pw);
+                const cipher = await CryptoModule.encrypt(text, pw);
                 const res = await fetch(`${API_URL}/api/save`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
                     body: JSON.stringify({ content: cipher })
                 });
-                if (res.ok) { alert("✅ 已存入安全库"); document.getElementById('noteInput').value = ""; loadList(); }
-                else alert("❌ 暗号错误");
-            } catch (e) { alert("❌ 网络连接失败"); }
+                
+                if (res.ok) { 
+                    UI.toast("✅ 已加密存入云端", "success");
+                    document.getElementById('noteInput').value = "";
+                    loadList();
+                } else {
+                    UI.toast("❌ 保存失败，请检查密钥或网络", "error");
+                }
+            } catch (e) {
+                console.error(e);
+                UI.toast("❌ 网络连接失败", "error");
+            } finally {
+                UI.setLoading("btnSave", false);
+            }
         }
 
         async function loadList() {
-            const pw = document.getElementById('mainPw').value; if (!pw) return alert("请输入密码解密");
+            const pw = document.getElementById('mainPw').value;
+            if (!pw) return UI.toast("请输入主密码以解密", "info");
+            
+            const btnRefresh = document.getElementById('btnRefresh');
+            const originalText = btnRefresh.innerHTML;
+            btnRefresh.innerHTML = "⏳ 加载中...";
+            btnRefresh.disabled = true;
+
             const listDiv = document.getElementById('notesList');
+            
             try {
                 const res = await fetch(`${API_URL}/api/list`, { headers: { 'Authorization': ADMIN_KEY } });
-                const notes = await res.json(); listDiv.innerHTML = "";
-                if (notes.length === 0) listDiv.innerHTML = '<div class="text-center py-20 text-slate-700 italic text-sm">暂无数据</div>';
+                if (!res.ok) throw new Error("API Error");
+                
+                const notes = await res.json();
+                listDiv.innerHTML = "";
+                
+                if (notes.length === 0) {
+                    listDiv.innerHTML = '<div class="text-center py-20 text-slate-700 italic text-sm">暂无数据</div>';
+                    return;
+                }
+
+                notes.sort((a, b) => b.id - a.id);
+
                 for (let n of notes) {
-                    const clearText = await decrypt(n.content, pw) || "🔒 [加密数据 / 密码不匹配]";
+                    const clearText = await CryptoModule.decrypt(n.content, pw);
+                    
                     const card = document.createElement('div');
-                    card.className = "note-card glass p-6 rounded-3xl space-y-4 border border-white/5 shadow-lg group";
-                    card.innerHTML = `
-                    <div class="flex justify-between text-[9px] font-black text-slate-500 tracking-widest uppercase italic">
-                        <span>索引编号 #${n.id}</span>
-                        <span>${new Date(n.created_at).toLocaleString()}</span>
-                    </div>
-                    <div class="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">${clearText}</div>
-                    <div class="pt-4 border-t border-white/5 flex flex-wrap gap-6 items-center">
-                        <button onclick="doShareCopy('${n.content}')" class="text-xs font-black text-blue-400 uppercase tracking-widest hover:text-blue-300 transition">📤 生成阅后即焚链接</button>
-                        <button onclick="doExport(\`${clearText.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, ${n.id})" class="text-xs font-black text-emerald-500 uppercase tracking-widest hover:text-emerald-400 transition">💾 导出备份</button>
-                        <button onclick="doDelete(${n.id})" class="text-xs font-black text-rose-500 uppercase tracking-widest ml-auto opacity-40 group-hover:opacity-100 transition">🗑️ 删除</button>
-                    </div>
-                `;
+                    card.className = "glass p-5 rounded-2xl space-y-3 border border-white/5 shadow-lg group transition hover:bg-slate-800/50";
+                    
+                    const metaHtml = `
+                        <div class="flex justify-between text-[10px] font-bold text-slate-500 tracking-widest uppercase">
+                            <span>#${n.id}</span>
+                            <span>${new Date(n.created_at).toLocaleString()}</span>
+                        </div>
+                    `;
+                    
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = "text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-sans break-words";
+                    if (clearText) {
+                        contentDiv.textContent = clearText; // 防XSS
+                    } else {
+                        contentDiv.innerHTML = `<span class="text-red-400 italic">🔒 无法解密 (密码错误或旧版数据)</span>`;
+                    }
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = "pt-3 border-t border-white/5 flex flex-wrap gap-4 items-center justify-end opacity-80";
+                    actionsDiv.innerHTML = `
+                         <button onclick="doShareCopy('${n.content}')" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest hover:text-white transition flex items-center gap-1">📤 分享</button>
+                         <button onclick="doExport(${n.id})" class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest hover:text-white transition flex items-center gap-1">💾 备份</button>
+                         <button onclick="doDelete(${n.id})" class="text-[10px] font-bold text-rose-500 uppercase tracking-widest hover:text-white transition flex items-center gap-1 ml-2">🗑️ 删除</button>
+                    `;
+
+                    actionsDiv.children[1].onclick = () => doExportText(clearText, n.id);
+
+                    card.innerHTML = metaHtml;
+                    card.appendChild(contentDiv);
+                    card.appendChild(actionsDiv);
                     listDiv.appendChild(card);
                 }
-            } catch (e) { alert("拉取失败"); }
+            } catch (e) {
+                console.error(e);
+                UI.toast("无法拉取列表，请检查配置", "error");
+            } finally {
+                btnRefresh.innerHTML = originalText;
+                btnRefresh.disabled = false;
+            }
         }
 
         async function doShareCopy(cipher) {
@@ -253,59 +443,90 @@
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
                     body: JSON.stringify({ content: cipher, public_id: pid, is_share: 1 })
                 });
-                const fullUrl = `${window.location.origin}${window.location.pathname}?share=${pid}&cfg=${btoa(API_URL)}`;
-                prompt("✅ 阅后即焚加密链接已生成：", fullUrl);
-            } catch (e) { alert("分享失败"); }
+                const fullUrl = `${window.location.origin}${window.location.pathname}?share=${pid}`;
+                await navigator.clipboard.writeText(fullUrl);
+                UI.toast("📋 链接已复制！阅后即焚", "success");
+            } catch (e) { 
+                prompt("复制链接:", `${window.location.origin}${window.location.pathname}?share=${pid}`);
+            }
         }
 
-        function doExport(text, id) {
+        function doExportText(text, id) {
+            if (!text) return UI.toast("无法导出未解密数据", "error");
             const date = new Date().toISOString().split('T')[0];
             const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `CloudNote_${id}_${date}.txt`; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = `Note_${id}_${date}.txt`; a.click();
         }
 
         async function doDelete(id) {
-            if (!confirm("确定要物理抹除这条记录吗？")) return;
-            await fetch(`${API_URL}/api/delete`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
-                body: JSON.stringify({ id: id })
-            });
-            loadList();
+            const confirmed = await UI.confirm("确定要物理抹除这条记录吗？此操作无法撤销。");
+            if (!confirmed) return;
+
+            try {
+                await fetch(`${API_URL}/api/delete`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
+                    body: JSON.stringify({ id: id })
+                });
+                UI.toast("🗑️ 已删除", "success");
+                loadList();
+            } catch (e) {
+                UI.toast("删除失败", "error");
+            }
         }
 
         async function doAI() {
-            const text = document.getElementById('noteInput').value; if (!text) return alert("笔记为空");
-            const btn = event.target; btn.innerText = "思考中..."; btn.disabled = true;
+            const text = document.getElementById('noteInput').value; 
+            if (!text) return UI.toast("请先输入笔记内容", "info");
+            
+            UI.setLoading("btnAI", true, "思考中...");
             try {
                 const res = await fetch(`${API_URL}/api/ai-sum`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': ADMIN_KEY },
                     body: JSON.stringify({ text: text.substring(0, 1000) })
                 });
                 const data = await res.json();
-                document.getElementById('noteInput').value += `\n\n--- ✨ AI SUMMARY ---\n${data.summary}`;
-            } finally { btn.innerText = "✨ AI 智能总结"; btn.disabled = false; }
+                document.getElementById('noteInput').value += `\n\n--- ✨ AI 总结 ---\n${data.summary}`;
+                UI.toast("AI 总结完成", "success");
+            } catch(e) {
+                UI.toast("AI 服务暂不可用", "error");
+            } finally {
+                UI.setLoading("btnAI", false, null, "✨ AI 总结");
+            }
         }
 
         async function doUnlockShare() {
-            const pw = document.getElementById('sharePw').value; const resDiv = document.getElementById('shareResult');
+            const pw = document.getElementById('sharePw').value;
+            if(!pw) return UI.toast("请输入密码", "error");
+
+            UI.setLoading("unlockBtn", true, "解密中...");
+            const resDiv = document.getElementById('shareResult');
+            
             try {
                 const res = await fetch(`${API_URL}/api/share/${shareId}`);
-                if (!res.ok) return alert("失效或已被焚毁");
-                const data = await res.json(); const clearText = await decrypt(data.content, pw);
-                if (clearText) { resDiv.innerText = clearText; resDiv.classList.remove('hidden'); document.getElementById('unlockBtn').disabled = true; document.getElementById('unlockBtn').innerText = "数据已销毁"; }
-                else alert("密码错误");
-            } catch (e) { alert("网络异常"); }
-        }
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('Service Worker Registered'))
-                .catch(err => console.error('Service Worker Registration Failed', err));
+                if (!res.ok) throw new Error("失效");
+                
+                const data = await res.json();
+                const clearText = await CryptoModule.decrypt(data.content, pw);
+                
+                if (clearText) { 
+                    resDiv.textContent = clearText;
+                    resDiv.classList.remove('hidden'); 
+                    const btn = document.getElementById('unlockBtn');
+                    btn.innerText = "数据已从服务器销毁";
+                    btn.className = "w-full bg-slate-800 text-slate-500 py-4 rounded-xl font-bold text-sm cursor-not-allowed";
+                    btn.disabled = true;
+                } else {
+                    UI.toast("密码错误，解密失败", "error");
+                    UI.setLoading("unlockBtn", false, null, "解密并销毁");
+                }
+            } catch (e) { 
+                UI.toast("链接已失效或已被焚毁", "error");
+                UI.setLoading("unlockBtn", false, null, "解密并销毁");
+            }
         }
 
         init();
     </script>
 </body>
-
 </html>
