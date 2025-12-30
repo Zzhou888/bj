@@ -1,7 +1,7 @@
 {
-    "name": "CloudNotes",
-    "short_name": "CloudNotes",
-    "description": "2026 隐私加密笔记 - 端到端加密保险库",
+    "name": "优米笔记",
+    "short_name": "优米笔记",
+    "description": "2026 优米隐私加密笔记 - 端到端加密保险库",
     "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#020617",
